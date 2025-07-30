@@ -1,0 +1,42 @@
+metadata:
+  description: "A flexible, reusable mini-map component for SpriteKit games that supports multiple entity types with customizable markers and positioning."
+  keywords:
+    - "spritekit"
+    - "game-development"
+    - "minimap"
+    - "ui"
+    - "swift"
+    - "ios"
+    - "macos"
+    - "tvos"
+    - "watchos"
+    - "game"
+    - "map"
+    - "overlay"
+    - "camera"
+    - "entities"
+    - "markers"
+  platforms:
+    - "ios"
+    - "macos"
+    - "tvos"
+    - "watchos"
+  license:
+    type: "MIT"
+    url: "https://github.com/andrew-williamson/MiniMapPackage/blob/main/LICENSE"
+  authors:
+    - name: "Andrew Williamson"
+      email: "andrew@example.com"
+  social:
+    github: "andrew-williamson"
+  links:
+    homepage: "https://github.com/andrew-williamson/MiniMapPackage"
+    documentation: "https://github.com/andrew-williamson/MiniMapPackage#readme"
+    repository: "https://github.com/andrew-williamson/MiniMapPackage"
+    issues: "https://github.com/andrew-williamson/MiniMapPackage/issues"
+  screenshots:
+    - url: "https://github.com/andrew-williamson/MiniMapPackage/raw/main/docs/screenshot.png"
+      alt: "MiniMap in action showing multiple entity types"
+  videos:
+    - url: "https://github.com/andrew-williamson/MiniMapPackage/raw/main/docs/demo.gif"
+      alt: "Interactive demo showing mini-map functionality" 
