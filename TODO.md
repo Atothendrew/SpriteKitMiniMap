@@ -112,7 +112,7 @@
 ## Progress Tracking
 
 **Current Status**: Priority 1 tasks completed! ✅
-**Next Action**: Create GitHub repository and push code
+**Next Action**: Create GitHub repository at https://github.com/Atothendrew/MiniMapPackage and push code
 **Completed**: 
 - ✅ .gitignore file created
 - ✅ README.md updated with badges and correct URL

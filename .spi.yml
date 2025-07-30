@@ -23,20 +23,20 @@ metadata:
     - "watchos"
   license:
     type: "MIT"
-    url: "https://github.com/andrew-williamson/MiniMapPackage/blob/main/LICENSE"
+    url: "https://github.com/Atothendrew/MiniMapPackage/blob/main/LICENSE"
   authors:
     - name: "Andrew Williamson"
       email: "andrew@example.com"
   social:
-    github: "andrew-williamson"
+    github: "Atothendrew"
   links:
-    homepage: "https://github.com/andrew-williamson/MiniMapPackage"
-    documentation: "https://github.com/andrew-williamson/MiniMapPackage#readme"
-    repository: "https://github.com/andrew-williamson/MiniMapPackage"
-    issues: "https://github.com/andrew-williamson/MiniMapPackage/issues"
+    homepage: "https://github.com/Atothendrew/MiniMapPackage"
+    documentation: "https://github.com/Atothendrew/MiniMapPackage#readme"
+    repository: "https://github.com/Atothendrew/MiniMapPackage"
+    issues: "https://github.com/Atothendrew/MiniMapPackage/issues"
   screenshots:
-    - url: "https://github.com/andrew-williamson/MiniMapPackage/raw/main/docs/screenshot.png"
+    - url: "https://github.com/Atothendrew/MiniMapPackage/raw/main/docs/screenshot.png"
       alt: "MiniMap in action showing multiple entity types"
   videos:
-    - url: "https://github.com/andrew-williamson/MiniMapPackage/raw/main/docs/demo.gif"
+    - url: "https://github.com/Atothendrew/MiniMapPackage/raw/main/docs/demo.gif"
       alt: "Interactive demo showing mini-map functionality" 

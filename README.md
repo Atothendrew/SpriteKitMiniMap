@@ -32,7 +32,7 @@ A flexible, reusable mini-map component for SpriteKit games that supports multip
 Add the package to your Xcode project:
 
 1. In Xcode, go to **File** → **Add Package Dependencies**
-2. Enter the package URL: `https://github.com/andrew-williamson/MiniMapPackage.git`
+2. Enter the package URL: `https://github.com/Atothendrew/MiniMapPackage.git`
 3. Select the version you want to use
 4. Click **Add Package**
 
@@ -318,8 +318,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Check the [examples](Examples/) for working implementations
 - Review the [API documentation](#api-reference) for detailed usage
-- Open an [issue](https://github.com/andrew-williamson/MiniMapPackage/issues) for bugs
-- Start a [discussion](https://github.com/andrew-williamson/MiniMapPackage/discussions) for questions
+- Open an [issue](https://github.com/Atothendrew/MiniMapPackage/issues) for bugs
+- Start a [discussion](https://github.com/Atothendrew/MiniMapPackage/discussions) for questions
 
 ## Acknowledgments
 
