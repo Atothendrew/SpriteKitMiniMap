@@ -295,6 +295,32 @@ The package is already integrated into the GatherGame project, demonstrating rea
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Troubleshooting
+
+### Common Issues
+
+**Build Errors**
+- Ensure you're using Swift 5.9+ and Xcode 15.0+
+- Clean build folder: `swift package clean`
+- Reset package cache: `swift package reset`
+
+**Runtime Issues**
+- Make sure your entities conform to `MiniMapEntity` protocol
+- Verify scene coordinates are within expected bounds
+- Check that mini-map is added to the scene before updating positions
+
+**Platform-Specific Notes**
+- On macOS, Y coordinates may be inverted compared to iOS
+- Some platforms may have different touch/click handling
+- Test on target platforms before release
+
+### Getting Help
+
+- Check the [examples](Examples/) for working implementations
+- Review the [API documentation](#api-reference) for detailed usage
+- Open an [issue](https://github.com/andrew-williamson/MiniMapPackage/issues) for bugs
+- Start a [discussion](https://github.com/andrew-williamson/MiniMapPackage/discussions) for questions
+
 ## Acknowledgments
 
 - Built for SpriteKit game development
