@@ -122,13 +122,78 @@ extension GameScene {
 
 ```swift
 extension GameScene: MiniMapDelegate {
-    func miniMapClicked(at position: CGPoint) {
-        // Move camera to clicked position
-        let moveAction = SKAction.move(to: position, duration: 0.5)
-        camera?.run(moveAction)
-    }
+  func miniMapClicked(at position: CGPoint) {
+    // Move camera to clicked position
+    let moveAction = SKAction.move(to: position, duration: 0.5)
+    camera?.run(moveAction)
+  }
 }
 ```
+
+### 5. Easy Integration with Mouse Events
+
+For easy integration into existing games, use the convenience methods:
+
+```swift
+override func mouseDown(with event: NSEvent) {
+  let location = event.location(in: self)
+  
+  // Handle mini-map interaction first
+  if miniMap.handleMouseDown(at: location, in: self) {
+    return
+  }
+  
+  // Handle other game interactions here...
+  // Example: shopManager.handleTouch(at: location, in: self)
+}
+
+override func mouseDragged(with event: NSEvent) {
+  let location = event.location(in: self)
+  
+  // Handle mini-map interaction first
+  if miniMap.handleMouseDragged(to: location, in: self) {
+    return
+  }
+  
+  // Handle other game interactions here...
+}
+
+override func mouseUp(with event: NSEvent) {
+  let location = event.location(in: self)
+  
+  // Handle mini-map interaction first
+  if miniMap.handleMouseUp(at: location, in: self) {
+    return
+  }
+  
+  // Handle other game interactions here...
+}
+
+override func rightMouseDown(with event: NSEvent) {
+  let location = event.location(in: self)
+  
+  // Handle mini-map interaction first
+  if miniMap.handleRightMouseDown(at: location, in: self) {
+    return
+  }
+  
+  // Handle other game interactions here...
+}
+
+override func mouseMoved(with event: NSEvent) {
+  let location = event.location(in: self)
+  
+  // Handle mini-map interaction first
+  if miniMap.handleMouseMoved(to: location, in: self) {
+    return
+  }
+  
+  // Reset cursor if not over mini-map
+  NSCursor.arrow.set()
+}
+```
+
+> 📖 **For comprehensive integration guidance, see the [Integration Guide](INTEGRATION_GUIDE.md)**
 
 ## API Reference
 
