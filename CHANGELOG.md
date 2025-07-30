@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2025-07-30
+
+### Improved
+- Enhanced macOS cursor handling for better user interaction during drag and resize operations
+- More responsive cursor feedback during mini-map interactions
+
 ## [1.0.1] - 2025-07-30
 
 ### Fixed
