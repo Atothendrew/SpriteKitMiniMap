@@ -30,4 +30,80 @@ jobs:
     # The example app works locally and is provided for reference
     
   # Note: Linux build removed because SpriteKit is not available on Linux
-  # This package is designed for Apple platforms (iOS, macOS, tvOS, watchOS) 
+  # This package is designed for Apple platforms (iOS, macOS, tvOS, watchOS)
+
+  release:
+    needs: test
+    runs-on: macos-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for version detection
+    
+    - name: Setup Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+    
+    - name: Determine Next Version
+      id: version
+      run: |
+        # Get the latest version tag
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "Latest tag: $LATEST_TAG"
+        
+        # Extract version numbers
+        if [[ $LATEST_TAG =~ v([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+          MAJOR=${BASH_REMATCH[1]}
+          MINOR=${BASH_REMATCH[2]}
+          PATCH=${BASH_REMATCH[3]}
+          
+          # Increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="v$MAJOR.$MINOR.$NEW_PATCH"
+        else
+          # If no valid tag found, start with v1.0.1
+          NEW_VERSION="v1.0.1"
+        fi
+        
+        echo "New version: $NEW_VERSION"
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Update Changelog
+      run: |
+        # Add new version entry to changelog
+        sed -i '' "s/## \[Unreleased\]/## [Unreleased]\n\n## [${{ steps.version.outputs.version }}] - $(date +%Y-%m-%d)\n\n### Added\n- Automated release from CI\/CD pipeline\n\n/" CHANGELOG.md
+    
+    - name: Commit and Tag
+      run: |
+        git add CHANGELOG.md
+        git commit -m "Prepare for ${{ steps.version.outputs.version }} release - Automated CI/CD release"
+        git tag ${{ steps.version.outputs.version }}
+        git push origin main
+        git push origin ${{ steps.version.outputs.version }}
+    
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        release_name: ${{ steps.version.outputs.version }} - Automated Release
+        body: |
+          ## What's New in ${{ steps.version.outputs.version }}
+          
+          ### ✨ Added
+          - Automated release from CI/CD pipeline
+          
+          ### 📦 Installation
+          ```swift
+          .package(url: "https://github.com/Atothendrew/SpriteKitMiniMap.git", from: "${{ steps.version.outputs.version }}")
+          ```
+          
+          ### 🔗 Links
+          - **GitHub Release**: https://github.com/Atothendrew/SpriteKitMiniMap/releases/tag/${{ steps.version.outputs.version }}
+          - **Package URL**: https://github.com/Atothendrew/SpriteKitMiniMap.git
+        draft: false
+        prerelease: false 
