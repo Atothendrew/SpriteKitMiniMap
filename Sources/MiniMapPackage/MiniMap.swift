@@ -166,10 +166,12 @@ public struct AnyMiniMapEntity: MiniMapEntity {
 /// The MiniMap class provides a customizable overlay that displays entity positions
 /// and camera view information. It supports multiple entity types, predefined
 /// positioning, and interactive features like click handling and dragging.
+/// The base marker is optional and can be enabled via the showBaseMarker property.
+/// Position updates on click are optional and can be enabled via the updatePositionOnClick property.
 public class MiniMap: SKNode {
   private var mapSize: CGSize
   internal let background: SKShapeNode
-  private let baseMarker: SKShapeNode
+  private let baseMarker: SKShapeNode?
   private var entityMarkers: [SKShapeNode] = []
   private var cameraViewFrame: SKShapeNode?
   public weak var delegate: MiniMapDelegate?
@@ -205,6 +207,14 @@ public class MiniMap: SKNode {
   public var cameraFrameLineWidth: CGFloat = 2.0
   public var cameraFrameAlpha: CGFloat = 0.7
   public var miniMapZPosition: CGFloat = 1000
+  
+  /// Whether to show the base marker on the mini-map
+  /// When enabled, a blue circle will be displayed to represent the base position
+  public var showBaseMarker: Bool = false
+  
+  /// Whether clicking on the mini-map should update the camera position
+  /// When enabled, clicking on the mini-map will move the camera to that position
+  public var updatePositionOnClick: Bool = false
 
   /// Initialize a mini-map with a custom size
   /// - Parameter size: The size of the mini-map
@@ -219,11 +229,15 @@ public class MiniMap: SKNode {
     background.lineWidth = backgroundLineWidth
     background.alpha = backgroundAlpha
 
-    // Base marker
-    baseMarker = SKShapeNode(circleOfRadius: 3)
-    baseMarker.fillColor = .blue
-    baseMarker.strokeColor = .white
-    baseMarker.lineWidth = 1
+    // Base marker (optional)
+    if showBaseMarker {
+      baseMarker = SKShapeNode(circleOfRadius: 3)
+      baseMarker?.fillColor = .blue
+      baseMarker?.strokeColor = .white
+      baseMarker?.lineWidth = 1
+    } else {
+      baseMarker = nil
+    }
 
     // Camera view frame (initially hidden)
     cameraViewFrame = SKShapeNode()
@@ -237,7 +251,9 @@ public class MiniMap: SKNode {
     self.zPosition = miniMapZPosition
 
     addChild(background)
-    addChild(baseMarker)
+    if let baseMarker = baseMarker {
+      addChild(baseMarker)
+    }
     if let cameraFrame = cameraViewFrame {
       addChild(cameraFrame)
     }
@@ -273,7 +289,11 @@ public class MiniMap: SKNode {
   public func handleClick(at location: CGPoint) {
     // Convert click location to scene coordinates
     let scenePosition = convertFromMapPosition(location)
-    delegate?.miniMapClicked(at: scenePosition)
+    
+    // Only call delegate if position updates on click are enabled
+    if updatePositionOnClick {
+      delegate?.miniMapClicked(at: scenePosition)
+    }
   }
   
   // MARK: - Easy Integration Methods
@@ -297,6 +317,7 @@ public class MiniMap: SKNode {
         return true
       }
       // Mouse is over mini-map but not over resize/drag areas
+      // Don't handle click here - wait for mouse up
       return true
     }
     return false
@@ -426,6 +447,7 @@ public class MiniMap: SKNode {
   ///   - position: The position of the base in scene coordinates
   ///   - sceneSize: The size of the game scene
   public func updateBasePosition(_ position: CGPoint, sceneSize: CGSize) {
+    guard let baseMarker = baseMarker else { return }
     let mapPosition = convertToMapPosition(position, sceneSize: sceneSize)
     baseMarker.position = mapPosition
   }

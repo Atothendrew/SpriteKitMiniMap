@@ -86,6 +86,8 @@ class ExampleGameScene: SKScene {
     miniMap.cameraFrameColor = SKColor.cyan
     miniMap.cameraFrameLineWidth = 1.5
     miniMap.cameraFrameAlpha = 0.7
+    // Enable position updates on click for this example
+    miniMap.updatePositionOnClick = true
     addChild(miniMap)
   }
 
@@ -212,7 +214,7 @@ extension ExampleGameScene: MiniMapDelegate {
   func miniMapClicked(at position: CGPoint) {
     // Cycle to next position instead of moving camera
     cycleToNextPosition()
-    }
+  }
   
   override func mouseDown(with event: NSEvent) {
     let location = event.location(in: self)
