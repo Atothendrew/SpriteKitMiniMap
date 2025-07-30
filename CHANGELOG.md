@@ -7,10 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Initial release preparation
-- Comprehensive documentation
-- Example app with interactive position cycling
+## [1.0.1] - 2025-07-30
+
+### Fixed
+- CI build issues with package name resolution
+- Removed Linux build (SpriteKit not available on Linux)
+- Simplified macOS cursor handling for broader compatibility
+- Fixed example app build in CI environment
+
+### Improved
+- Enhanced mouse event handling with convenience methods
+- Improved drag and resize interaction logic
+- Better coordinate system handling
+- More robust click vs drag detection
+- Persistent dragging state management
+- Entity scaling on map resize
+
+### Technical
+- Added 19 comprehensive tests for interaction logic
+- Improved documentation with integration guide
+- Enhanced error handling and edge cases
+- Better platform-specific behavior handling
 
 ## [1.0.0] - 2025-07-30
 
