@@ -374,7 +374,9 @@ public class MiniMap: SKNode {
     if contains(locationInMiniMap) {
       // If currently dragging or resizing, maintain the appropriate cursor
       if isDragging {
+        #if os(macOS)
         NSCursor.closedHand.set()
+        #endif
         return true
       }
       if isResizing {
@@ -394,11 +396,15 @@ public class MiniMap: SKNode {
       }
       // Check if mouse is over drag area (top-left corner)
       if isOverDragArea(locationInMiniMap) {
+        #if os(macOS)
         NSCursor.openHand.set()
+        #endif
         return true
       }
       // Mouse is over mini-map but not over resize/drag areas
+      #if os(macOS)
       NSCursor.arrow.set()
+      #endif
       return true
     }
     return false
