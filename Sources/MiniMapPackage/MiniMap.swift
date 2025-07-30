@@ -379,11 +379,7 @@ public class MiniMap: SKNode {
       }
       if isResizing {
         #if os(macOS)
-        if #available(macOS 15.0, *) {
-          NSCursor.frameResize(position: .bottomRight, directions: .all).set()
-        } else {
-          NSCursor.crosshair.set()
-        }
+        NSCursor.crosshair.set()
         #endif
         return true
       }
@@ -392,11 +388,7 @@ public class MiniMap: SKNode {
       // Check if mouse is over resize area (bottom-right corner)
       if isOverResizeArea(locationInMiniMap) {
         #if os(macOS)
-        if #available(macOS 15.0, *) {
-          NSCursor.frameResize(position: .bottomRight, directions: .all).set()
-        } else {
-          NSCursor.crosshair.set()
-        }
+        NSCursor.crosshair.set()
         #endif
         return true
       }
