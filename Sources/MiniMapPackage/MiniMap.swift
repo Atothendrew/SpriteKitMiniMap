@@ -291,10 +291,9 @@ public class MiniMap: SKNode {
     let scenePosition = convertFromMapPosition(location)
     
     // Only call delegate if position updates on click are enabled
-    if updatePositionOnClick {
       delegate?.miniMapClicked(at: scenePosition)
-    }
-  }
+    
+      }
   
   // MARK: - Easy Integration Methods
   

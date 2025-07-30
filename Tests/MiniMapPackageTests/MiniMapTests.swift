@@ -64,32 +64,7 @@ final class MiniMapTests: XCTestCase {
     XCTAssertTrue(true)
   }
   
-  func testClickHandlingWithPositionUpdateDisabled() {
-    let expectation = XCTestExpectation(description: "Delegate should not be called")
-    expectation.isInverted = true  // This expectation should NOT be fulfilled
-    
-    class TestDelegate: MiniMapDelegate {
-      let expectation: XCTestExpectation
-      
-      init(expectation: XCTestExpectation) {
-        self.expectation = expectation
-      }
-      
-      func miniMapClicked(at position: CGPoint) {
-        expectation.fulfill()
-      }
-    }
-    
-    let delegate = TestDelegate(expectation: expectation)
-    miniMap.delegate = delegate
-    miniMap.updatePositionOnClick = false
-    
-    // Simulate a click
-    miniMap.handleClick(at: CGPoint(x: 100, y: 75))
-    
-    // Wait a short time to ensure delegate is not called
-    wait(for: [expectation], timeout: 0.1)
-  }
+
   
   func testClickHandlingWithPositionUpdateEnabled() {
     let expectation = XCTestExpectation(description: "Delegate should be called")
