@@ -290,10 +290,8 @@ public class MiniMap: SKNode {
     // Convert click location to scene coordinates
     let scenePosition = convertFromMapPosition(location)
     
-    // Only call delegate if position updates on click are enabled
-    if updatePositionOnClick {
       delegate?.miniMapClicked(at: scenePosition)
-    }
+    
   }
   
   // MARK: - Easy Integration Methods
