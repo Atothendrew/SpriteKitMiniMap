@@ -178,12 +178,19 @@ public class MiniMap: SKNode {
   private var isDragging = false
   private var isResizing = false
   private var dragStart: CGPoint = .zero
+  private var dragOffset: CGPoint = .zero
   private var resizeStart: CGPoint = .zero
   private var originalSize: CGSize = .zero
   private var lastResizeTime: TimeInterval = 0
   private var lastDragTime: TimeInterval = 0
   private let resizeTimeout: TimeInterval = 5.0  // 5 seconds timeout
   private let dragTimeout: TimeInterval = 5.0  // 5 seconds timeout
+  
+  // Entity tracking for resize updates
+  private var currentEntities: [AnyMiniMapEntity] = []
+  private var currentSceneSize: CGSize = .zero
+  
+
 
   // Default position and size for reset functionality
   public var defaultPosition: CGPoint = .zero
@@ -268,6 +275,142 @@ public class MiniMap: SKNode {
     let scenePosition = convertFromMapPosition(location)
     delegate?.miniMapClicked(at: scenePosition)
   }
+  
+  // MARK: - Easy Integration Methods
+  
+  /// Handle mouse down event from scene (convenience method)
+  /// - Parameters:
+  ///   - location: Mouse location in scene coordinates
+  ///   - scene: The parent scene
+  /// - Returns: True if the event was handled by the mini-map
+  public func handleMouseDown(at location: CGPoint, in scene: SKScene) -> Bool {
+    let locationInMiniMap = convert(location, from: scene)
+    if contains(locationInMiniMap) {
+      // Check if mouse is over resize area (bottom-right corner)
+      if isOverResizeArea(locationInMiniMap) {
+        startResizing(at: locationInMiniMap)
+        return true
+      }
+      // Check if mouse is over drag area (top-left corner)
+      if isOverDragArea(locationInMiniMap) {
+        startDragging(at: locationInMiniMap)
+        return true
+      }
+      // Mouse is over mini-map but not over resize/drag areas
+      return true
+    }
+    return false
+  }
+  
+  /// Handle mouse dragged event from scene (convenience method)
+  /// - Parameters:
+  ///   - location: Mouse location in scene coordinates
+  ///   - scene: The parent scene
+  /// - Returns: True if the event was handled by the mini-map
+  public func handleMouseDragged(to location: CGPoint, in scene: SKScene) -> Bool {
+    // If we're already dragging or resizing, continue regardless of mouse position
+    if isDragging || isResizing {
+      let locationInMiniMap = convert(location, from: scene)
+      handleTouchMoved(to: locationInMiniMap)
+      return true
+    }
+    
+    // If not dragging/resizing, only handle if mouse is over mini-map
+    let locationInMiniMap = convert(location, from: scene)
+    if contains(locationInMiniMap) {
+      handleTouchMoved(to: locationInMiniMap)
+      return true
+    }
+    return false
+  }
+  
+  /// Handle mouse up event from scene (convenience method)
+  /// - Parameters:
+  ///   - location: Mouse location in scene coordinates
+  ///   - scene: The parent scene
+  /// - Returns: True if the event was handled by the mini-map
+  public func handleMouseUp(at location: CGPoint, in scene: SKScene) -> Bool {
+    // Always handle mouse up if we were dragging or resizing
+    if isDragging || isResizing {
+      handleTouchEnded()
+      return true
+    }
+    
+    // If not dragging/resizing, only handle if mouse is over mini-map
+    let locationInMiniMap = convert(location, from: scene)
+    if contains(locationInMiniMap) {
+      // If we weren't dragging or resizing, it was a click
+      if !isDragging && !isResizing {
+        handleClick(at: locationInMiniMap)
+      }
+      
+      handleTouchEnded()
+      return true
+    }
+    return false
+  }
+  
+  /// Handle right mouse down event from scene (convenience method)
+  /// - Parameters:
+  ///   - location: Mouse location in scene coordinates
+  ///   - scene: The parent scene
+  /// - Returns: True if the event was handled by the mini-map
+  public func handleRightMouseDown(at location: CGPoint, in scene: SKScene) -> Bool {
+    let locationInMiniMap = convert(location, from: scene)
+    if contains(locationInMiniMap) {
+      handleRightClick(at: locationInMiniMap)
+      return true
+    }
+    return false
+  }
+  
+  /// Handle mouse moved event from scene (convenience method)
+  /// - Parameters:
+  ///   - location: Mouse location in scene coordinates
+  ///   - scene: The parent scene
+  /// - Returns: True if the event was handled by the mini-map
+  public func handleMouseMoved(to location: CGPoint, in scene: SKScene) -> Bool {
+    let locationInMiniMap = convert(location, from: scene)
+    if contains(locationInMiniMap) {
+      // If currently dragging or resizing, maintain the appropriate cursor
+      if isDragging {
+        NSCursor.closedHand.set()
+        return true
+      }
+      if isResizing {
+        #if os(macOS)
+        if #available(macOS 15.0, *) {
+          NSCursor.frameResize(position: .bottomRight, directions: .all).set()
+        } else {
+          NSCursor.crosshair.set()
+        }
+        #endif
+        return true
+      }
+      
+      // Not dragging or resizing, so check hover areas
+      // Check if mouse is over resize area (bottom-right corner)
+      if isOverResizeArea(locationInMiniMap) {
+        #if os(macOS)
+        if #available(macOS 15.0, *) {
+          NSCursor.frameResize(position: .bottomRight, directions: .all).set()
+        } else {
+          NSCursor.crosshair.set()
+        }
+        #endif
+        return true
+      }
+      // Check if mouse is over drag area (top-left corner)
+      if isOverDragArea(locationInMiniMap) {
+        NSCursor.openHand.set()
+        return true
+      }
+      // Mouse is over mini-map but not over resize/drag areas
+      NSCursor.arrow.set()
+      return true
+    }
+    return false
+  }
 
   // MARK: - Bounds Checking
 
@@ -294,6 +437,10 @@ public class MiniMap: SKNode {
   ///   - entities: Array of entities to display on the mini-map
   ///   - sceneSize: The size of the game scene
   public func updateEntityPositions(_ entities: [AnyMiniMapEntity], sceneSize: CGSize) {
+    // Store current entities and scene size for resize updates
+    currentEntities = entities
+    currentSceneSize = sceneSize
+    
     // Remove old markers
     for marker in entityMarkers {
       marker.removeFromParent()
@@ -443,13 +590,13 @@ public class MiniMap: SKNode {
   }
 
   public func isOverDragArea(_ location: CGPoint) -> Bool {
-    // Check if mouse is in the top-left corner area for dragging
-    let dragAreaSize: CGFloat = 25
-    // For macOS, the Y coordinates might be inverted, so we check the bottom-left corner instead
+    // Check if mouse is in the top area for dragging (entire top edge)
+    let dragAreaHeight: CGFloat = 25
+    // For macOS, the Y coordinates might be inverted, so we check the bottom area instead
     #if os(macOS)
-      return location.x <= dragAreaSize && location.y >= mapSize.height - dragAreaSize
+      return location.y >= mapSize.height - dragAreaHeight
     #else
-      return location.x <= dragAreaSize && location.y <= dragAreaSize
+      return location.y <= dragAreaHeight
     #endif
   }
 
@@ -472,20 +619,22 @@ public class MiniMap: SKNode {
   private func startDragging(at location: CGPoint) {
     isDragging = true
     dragStart = location
+    
+    // Calculate the offset from the mini-map's position to the drag start point
+    // location is in scene coordinates, position is in scene coordinates
+    dragOffset = CGPoint(x: location.x - position.x, y: location.y - position.y)
   }
 
   private func updateDragging(to location: CGPoint) {
     // Update the last drag time
     lastDragTime = CACurrentMediaTime()
 
-    // Calculate the total delta from the original drag start position
-    let totalDelta = CGPoint(x: location.x - dragStart.x, y: location.y - dragStart.y)
-
-    // Update position based on the total delta
-    position = CGPoint(x: position.x + totalDelta.x, y: position.y + totalDelta.y)
-
-    // Update drag start to current location for next frame
-    dragStart = location
+    // Calculate the new position by subtracting the offset from the mouse location
+    // Both location and dragOffset are in scene coordinates
+    let newPosition = CGPoint(x: location.x - dragOffset.x, y: location.y - dragOffset.y)
+    
+    // Update the mini-map position
+    position = newPosition
   }
 
   private func endDragging() {
@@ -550,7 +699,10 @@ public class MiniMap: SKNode {
     // Update background size
     background.path = CGPath(rect: CGRect(origin: .zero, size: mapSize), transform: nil)
 
-    // No visual handles to update for standard window resizing
+    // Recalculate entity positions for the new map size
+    if !currentEntities.isEmpty {
+      updateEntityPositions(currentEntities, sceneSize: currentSceneSize)
+    }
   }
 
   private func resetToDefault() {

@@ -212,6 +212,63 @@ extension ExampleGameScene: MiniMapDelegate {
   func miniMapClicked(at position: CGPoint) {
     // Cycle to next position instead of moving camera
     cycleToNextPosition()
+    }
+  
+  override func mouseDown(with event: NSEvent) {
+    let location = event.location(in: self)
+    
+    // Handle mini-map interaction first
+    if miniMap.handleMouseDown(at: location, in: self) {
+      return
+    }
+    
+    // Handle other game interactions here...
+    // Example: shopManager.handleTouch(at: location, in: self)
+  }
+  
+  override func mouseDragged(with event: NSEvent) {
+    let location = event.location(in: self)
+    
+    // Handle mini-map interaction first
+    if miniMap.handleMouseDragged(to: location, in: self) {
+      return
+    }
+    
+    // Handle other game interactions here...
+  }
+  
+  override func mouseUp(with event: NSEvent) {
+    let location = event.location(in: self)
+    
+    // Handle mini-map interaction first
+    if miniMap.handleMouseUp(at: location, in: self) {
+      return
+    }
+    
+    // Handle other game interactions here...
+  }
+  
+  override func rightMouseDown(with event: NSEvent) {
+    let location = event.location(in: self)
+    
+    // Handle mini-map interaction first
+    if miniMap.handleRightMouseDown(at: location, in: self) {
+      return
+    }
+    
+    // Handle other game interactions here...
+  }
+  
+  override func mouseMoved(with event: NSEvent) {
+    let location = event.location(in: self)
+    
+    // Handle mini-map interaction first
+    if miniMap.handleMouseMoved(to: location, in: self) {
+      return
+    }
+    
+    // Reset cursor if not over mini-map
+    NSCursor.arrow.set()
   }
 }
 
@@ -240,6 +297,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     skView = SKView(frame: window.contentView!.bounds)
     skView.autoresizingMask = [.width, .height]
     window.contentView!.addSubview(skView)
+    
+    // Enable mouse tracking for hover effects
+    skView.allowsTransparency = true
+    skView.ignoresSiblingOrder = true
 
     // Create and present the scene
     let scene = ExampleGameScene(size: CGSize(width: 800, height: 600))
@@ -249,6 +310,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     skView.presentScene(scene)
     skView.showsFPS = true
     skView.showsNodeCount = true
+    
+    // Enable mouse tracking for hover effects
+    window.acceptsMouseMovedEvents = true
 
     // Activate the app
     NSApp.activate(ignoringOtherApps: true)
