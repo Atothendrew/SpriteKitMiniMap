@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - 'CHANGELOG.md'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -53,7 +55,7 @@ jobs:
     runs-on: macos-latest
     if: |
       (github.event_name == 'workflow_dispatch') ||
-      (github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message !~ /^Merge pull request/)
+      (github.ref == 'refs/heads/main' && github.event_name == 'push')
     
     steps:
     - uses: actions/checkout@v4
