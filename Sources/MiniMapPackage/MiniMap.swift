@@ -578,10 +578,10 @@ public class MiniMap: SKNode {
     }
 
     // Check if touch is on background (for dragging)
-    if background.contains(location) {
-      startDragging(at: location)
-      return
-    }
+//    if background.contains(location) {
+//      startDragging(at: location)
+//      return
+//    }
 
     // Otherwise, handle as click
     handleClick(at: location)
