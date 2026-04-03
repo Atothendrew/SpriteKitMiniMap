@@ -17,6 +17,8 @@ let package = Package(
   targets: [
     .executableTarget(
       name: "MiniMapExampleApp",
-      dependencies: ["MiniMapPackage"])
+      dependencies: [
+        .product(name: "MiniMapPackage", package: "SpriteKitMiniMap")
+      ])
   ]
 )
