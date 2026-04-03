@@ -171,7 +171,7 @@ public struct AnyMiniMapEntity: MiniMapEntity {
 public class MiniMap: SKNode {
   private var mapSize: CGSize
   internal let background: SKShapeNode
-  private let baseMarker: SKShapeNode?
+  private var baseMarker: SKShapeNode?
   private var entityMarkers: [SKShapeNode] = []
   private var cameraViewFrame: SKShapeNode?
   public weak var delegate: MiniMapDelegate?
@@ -191,6 +191,9 @@ public class MiniMap: SKNode {
   // Entity tracking for resize updates
   private var currentEntities: [AnyMiniMapEntity] = []
   private var currentSceneSize: CGSize = .zero
+  private var currentBasePosition: CGPoint?
+  private var currentCameraPosition: CGPoint?
+  private var currentCameraZoom: CGFloat?
   
 
 
@@ -210,7 +213,26 @@ public class MiniMap: SKNode {
   
   /// Whether to show the base marker on the mini-map
   /// When enabled, a blue circle will be displayed to represent the base position
-  public var showBaseMarker: Bool = false
+  public var showBaseMarker: Bool = false {
+    didSet {
+      if showBaseMarker {
+        if baseMarker == nil {
+          let marker = SKShapeNode(circleOfRadius: 3)
+          marker.fillColor = .blue
+          marker.strokeColor = .white
+          marker.lineWidth = 1
+          baseMarker = marker
+          addChild(marker)
+          if let basePosition = currentBasePosition, currentSceneSize != .zero {
+            marker.position = convertToMapPosition(basePosition, sceneSize: currentSceneSize)
+          }
+        }
+      } else {
+        baseMarker?.removeFromParent()
+        baseMarker = nil
+      }
+    }
+  }
   
   /// Whether clicking on the mini-map should update the camera position
   /// When enabled, clicking on the mini-map will move the camera to that position
@@ -291,9 +313,10 @@ public class MiniMap: SKNode {
     let scenePosition = convertFromMapPosition(location)
     
     // Only call delegate if position updates on click are enabled
+    if updatePositionOnClick {
       delegate?.miniMapClicked(at: scenePosition)
-    
-      }
+    }
+  }
   
   // MARK: - Easy Integration Methods
   
@@ -446,6 +469,8 @@ public class MiniMap: SKNode {
   ///   - position: The position of the base in scene coordinates
   ///   - sceneSize: The size of the game scene
   public func updateBasePosition(_ position: CGPoint, sceneSize: CGSize) {
+    currentBasePosition = position
+    currentSceneSize = sceneSize
     guard let baseMarker = baseMarker else { return }
     let mapPosition = convertToMapPosition(position, sceneSize: sceneSize)
     baseMarker.position = mapPosition
@@ -488,12 +513,16 @@ public class MiniMap: SKNode {
   public func updateCameraViewFrame(cameraPosition: CGPoint, cameraZoom: CGFloat, sceneSize: CGSize)
   {
     guard let cameraFrame = cameraViewFrame else { return }
+    currentCameraPosition = cameraPosition
+    currentCameraZoom = cameraZoom
+    currentSceneSize = sceneSize
 
     // Calculate the visible area of the camera
     // When zoomed in (cameraZoom is small), viewport gets smaller
     // When zoomed out (cameraZoom is large), viewport gets larger
-    let viewportWidth = sceneSize.width * cameraZoom
-    let viewportHeight = sceneSize.height * cameraZoom
+    let safeZoom = max(cameraZoom, 0.0001)
+    let viewportWidth = sceneSize.width * safeZoom
+    let viewportHeight = sceneSize.height * safeZoom
 
     // Calculate the corners of the camera view
     let topLeft = CGPoint(
@@ -539,6 +568,7 @@ public class MiniMap: SKNode {
   // MARK: - Coordinate Conversion
 
   private func convertToMapPosition(_ scenePosition: CGPoint, sceneSize: CGSize) -> CGPoint {
+    guard sceneSize.width != 0, sceneSize.height != 0 else { return .zero }
     let scaleX = mapSize.width / sceneSize.width
     let scaleY = mapSize.height / sceneSize.height
     return CGPoint(x: scenePosition.x * scaleX, y: scenePosition.y * scaleY)
@@ -546,8 +576,10 @@ public class MiniMap: SKNode {
 
   private func convertFromMapPosition(_ mapPosition: CGPoint) -> CGPoint {
     // Get the scene size from the parent scene
-    guard let scene = self.scene else { return .zero }
-    let sceneSize = scene.size
+    let sceneSize = scene?.size ?? currentSceneSize
+    guard sceneSize.width != 0, sceneSize.height != 0, mapSize.width != 0, mapSize.height != 0 else {
+      return .zero
+    }
 
     let scaleX = sceneSize.width / mapSize.width
     let scaleY = sceneSize.height / mapSize.height
@@ -638,19 +670,19 @@ public class MiniMap: SKNode {
   private func startDragging(at location: CGPoint) {
     isDragging = true
     dragStart = location
+    lastDragTime = CACurrentMediaTime()
     
-    // Calculate the offset from the mini-map's position to the drag start point
-    // location is in scene coordinates, position is in scene coordinates
-    dragOffset = CGPoint(x: location.x - position.x, y: location.y - position.y)
+    // Location is in mini-map local coordinates; store as local offset.
+    dragOffset = location
   }
 
   private func updateDragging(to location: CGPoint) {
     // Update the last drag time
     lastDragTime = CACurrentMediaTime()
 
-    // Calculate the new position by subtracting the offset from the mouse location
-    // Both location and dragOffset are in scene coordinates
-    let newPosition = CGPoint(x: location.x - dragOffset.x, y: location.y - dragOffset.y)
+    guard let parent = parent else { return }
+    let locationInParent = convert(location, to: parent)
+    let newPosition = CGPoint(x: locationInParent.x - dragOffset.x, y: locationInParent.y - dragOffset.y)
     
     // Update the mini-map position
     position = newPosition
@@ -667,6 +699,7 @@ public class MiniMap: SKNode {
     isResizing = true
     resizeStart = location
     originalSize = mapSize
+    lastResizeTime = CACurrentMediaTime()
   }
 
   private func updateResizing(to location: CGPoint) {
@@ -678,7 +711,11 @@ public class MiniMap: SKNode {
 
     // Calculate new size based on the original size plus the total delta
     let newWidth = max(100, originalSize.width + totalDelta.x)
+    #if os(macOS)
+    let newHeight = max(100, originalSize.height - totalDelta.y)
+    #else
     let newHeight = max(100, originalSize.height + totalDelta.y)
+    #endif
 
     // Update the map size
     mapSize = CGSize(width: newWidth, height: newHeight)
@@ -718,9 +755,21 @@ public class MiniMap: SKNode {
     // Update background size
     background.path = CGPath(rect: CGRect(origin: .zero, size: mapSize), transform: nil)
 
+    if let currentBasePosition, let baseMarker {
+      baseMarker.position = convertToMapPosition(currentBasePosition, sceneSize: currentSceneSize)
+    }
+
     // Recalculate entity positions for the new map size
     if !currentEntities.isEmpty {
       updateEntityPositions(currentEntities, sceneSize: currentSceneSize)
+    }
+
+    if let currentCameraPosition, let currentCameraZoom {
+      updateCameraViewFrame(
+        cameraPosition: currentCameraPosition,
+        cameraZoom: currentCameraZoom,
+        sceneSize: currentSceneSize
+      )
     }
   }
 
