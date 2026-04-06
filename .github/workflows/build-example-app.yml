@@ -1,0 +1,30 @@
+name: Build Example App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Sources/**'
+      - 'Examples/MiniMapExampleApp/**'
+      - 'Package.swift'
+      - '.github/workflows/build-example-app.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Sources/**'
+      - 'Examples/MiniMapExampleApp/**'
+      - 'Package.swift'
+      - '.github/workflows/build-example-app.yml'
+  workflow_dispatch:
+
+jobs:
+  build-example-app:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build MiniMapExampleApp
+        working-directory: Examples/MiniMapExampleApp
+        run: swift build -c release
