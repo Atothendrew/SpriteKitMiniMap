@@ -9,29 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v1.0.6] - 2025-07-30
 
-### Added
-- Automated release from CI/CD pipeline
-
-
+### Changed
+- CI/CD pipeline refinements; no user-facing changes
 
 ## [v1.0.5] - 2025-07-30
 
-### Added
-- Automated release from CI/CD pipeline
-
-
+### Changed
+- CI/CD pipeline refinements; no user-facing changes
 
 ## [v1.0.4] - 2025-07-30
 
-### Added
-- Automated release from CI/CD pipeline
-
-
+### Changed
+- CI/CD pipeline refinements; no user-facing changes
 
 ## [v1.0.3] - 2025-07-30
 
-### Added
-- Automated release from CI/CD pipeline
+### Changed
+- CI/CD pipeline refinements; no user-facing changes
 
 
 

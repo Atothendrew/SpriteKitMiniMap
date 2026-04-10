@@ -34,9 +34,4 @@ metadata:
     documentation: "https://github.com/Atothendrew/MiniMapPackage#readme"
     repository: "https://github.com/Atothendrew/MiniMapPackage"
     issues: "https://github.com/Atothendrew/MiniMapPackage/issues"
-  screenshots:
-    - url: "https://github.com/Atothendrew/MiniMapPackage/raw/main/docs/screenshot.png"
-      alt: "MiniMap in action showing multiple entity types"
-  videos:
-    - url: "https://github.com/Atothendrew/MiniMapPackage/raw/main/docs/demo.gif"
-      alt: "Interactive demo showing mini-map functionality" 
+ 

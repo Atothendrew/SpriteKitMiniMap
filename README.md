@@ -400,4 +400,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Predefined locations and sizes
 - Camera view frame
 - Click handling
-- Cross-platform support # Test automated release
+- Cross-platform support

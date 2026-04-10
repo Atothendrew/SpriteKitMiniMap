@@ -672,23 +672,10 @@ class GameScene: SKScene {
 
 extension GameScene: MiniMapDelegate {
     func miniMapClicked(at position: CGPoint) {
-        // Convert mini-map position to scene position
-        let scenePosition = convertMiniMapPositionToScene(position)
-        
-        // Move player to clicked position
-        let moveAction = SKAction.move(to: scenePosition, duration: 1.0)
+        // position is already in scene coordinates — no conversion needed.
+        // MiniMap translates the tap internally before calling this delegate method.
+        let moveAction = SKAction.move(to: position, duration: 1.0)
         player.run(moveAction)
-    }
-    
-    private func convertMiniMapPositionToScene(_ miniMapPosition: CGPoint) -> CGPoint {
-        // Convert mini-map coordinates to scene coordinates
-        let scaleX = size.width / miniMap.mapSize.width
-        let scaleY = size.height / miniMap.mapSize.height
-        
-        return CGPoint(
-            x: miniMapPosition.x * scaleX,
-            y: miniMapPosition.y * scaleY
-        )
     }
 }
 

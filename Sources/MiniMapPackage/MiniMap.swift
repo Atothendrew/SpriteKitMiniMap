@@ -122,6 +122,12 @@ extension MiniMapEntity {
 
 // MARK: - Base Entity
 
+/// A concrete `MiniMapEntity` representing a stationary "base" location.
+///
+/// `BaseEntity` renders as a large blue circle (radius 3) and is intended for use with
+/// `updateBasePosition(_:sceneSize:)`. Note that the `MiniMap` also has a dedicated
+/// `showBaseMarker` property that displays an identical built-in marker without requiring
+/// you to pass a `BaseEntity` through `updateEntityPositions(_:sceneSize:)`.
 public struct BaseEntity: MiniMapEntity {
   public let position: CGPoint
 
@@ -567,6 +573,11 @@ public class MiniMap: SKNode {
 
   // MARK: - Coordinate Conversion
 
+  /// Converts a position in SpriteKit scene coordinates to mini-map local coordinates.
+  /// - Parameters:
+  ///   - scenePosition: A point in scene coordinate space (origin at bottom-left).
+  ///   - sceneSize: The full size of the scene, used to derive the scale factors.
+  /// - Returns: The corresponding point in mini-map local space (origin at bottom-left of the map).
   private func convertToMapPosition(_ scenePosition: CGPoint, sceneSize: CGSize) -> CGPoint {
     guard sceneSize.width != 0, sceneSize.height != 0 else { return .zero }
     let scaleX = mapSize.width / sceneSize.width
@@ -574,6 +585,9 @@ public class MiniMap: SKNode {
     return CGPoint(x: scenePosition.x * scaleX, y: scenePosition.y * scaleY)
   }
 
+  /// Converts a position in mini-map local coordinates back to SpriteKit scene coordinates.
+  /// - Parameter mapPosition: A point in mini-map local space.
+  /// - Returns: The corresponding point in scene coordinate space.
   private func convertFromMapPosition(_ mapPosition: CGPoint) -> CGPoint {
     // Get the scene size from the parent scene
     let sceneSize = scene?.size ?? currentSceneSize
@@ -593,6 +607,12 @@ public class MiniMap: SKNode {
     // The resize and drag areas are defined by the isOverResizeArea and isOverDragArea methods
   }
 
+  /// Internal touch dispatcher: checks for stuck drag/resize state, then routes the touch
+  /// to the drag handle, resize handle, or click handler as appropriate.
+  ///
+  /// Prefer the higher-level convenience methods (`handleMouseDown(at:in:)`,
+  /// `handleMouseDragged(to:in:)`, `handleMouseUp(at:in:)`) when integrating with
+  /// an `SKScene`, as they convert scene coordinates automatically.
   public func handleTouch(at location: CGPoint) {
     // Check for stuck operations first
     checkForStuckResize()
@@ -620,6 +640,9 @@ public class MiniMap: SKNode {
     handleClick(at: location)
   }
 
+  /// Handles a right-click (or equivalent secondary tap) within the mini-map.
+  /// Resets the mini-map to its original position and size as set at initialization.
+  /// - Parameter location: The click location in mini-map local coordinates.
   public func handleRightClick(at location: CGPoint) {
     // Reset to default position and size
     resetToDefault()
@@ -627,6 +650,13 @@ public class MiniMap: SKNode {
 
   // MARK: - Standard Window Resizing
 
+  /// Returns whether a point in mini-map local coordinates falls within the resize hot-zone.
+  ///
+  /// On macOS (where Y increases upward) the resize corner is at the bottom-right of the
+  /// rendered rectangle, which corresponds to the lowest Y values in local space.
+  /// On other platforms the resize corner is at the top-right of the rendered rectangle.
+  /// - Parameter location: A point in mini-map local coordinates.
+  /// - Returns: `true` if the point is inside the 25-pt resize corner area.
   public func isOverResizeArea(_ location: CGPoint) -> Bool {
     // Check if mouse is in the bottom-right corner area for resizing
     let resizeAreaSize: CGFloat = 25
@@ -640,6 +670,13 @@ public class MiniMap: SKNode {
     #endif
   }
 
+  /// Returns whether a point in mini-map local coordinates falls within the drag hot-zone.
+  ///
+  /// The drag zone spans the full width of the mini-map along its top edge (25 pt tall).
+  /// On macOS (where Y increases upward) this corresponds to the highest Y values;
+  /// on other platforms it corresponds to the lowest Y values.
+  /// - Parameter location: A point in mini-map local coordinates.
+  /// - Returns: `true` if the point is inside the drag strip.
   public func isOverDragArea(_ location: CGPoint) -> Bool {
     // Check if mouse is in the top area for dragging (entire top edge)
     let dragAreaHeight: CGFloat = 25
@@ -651,6 +688,10 @@ public class MiniMap: SKNode {
     #endif
   }
 
+  /// Continues an active drag or resize operation to the given location.
+  /// Call this from `mouseDragged` / `touchesMoved` after `handleTouch(at:)` has started
+  /// a drag or resize. Has no effect if neither operation is active.
+  /// - Parameter location: The current touch/cursor position in mini-map local coordinates.
   public func handleTouchMoved(to location: CGPoint) {
     if isDragging {
       updateDragging(to: location)
@@ -659,6 +700,8 @@ public class MiniMap: SKNode {
     }
   }
 
+  /// Ends the current drag or resize operation and resets the associated state.
+  /// Call this from `mouseUp` / `touchesEnded`. Has no effect if neither operation is active.
   public func handleTouchEnded() {
     if isDragging {
       endDragging()
@@ -751,6 +794,9 @@ public class MiniMap: SKNode {
     }
   }
 
+  /// Redraws all visual elements to match the current `mapSize`.
+  /// Called after every live-resize step to keep the background shape, entity markers,
+  /// and camera frame in sync with the new dimensions.
   private func updateMapSize() {
     // Update background size
     background.path = CGPath(rect: CGRect(origin: .zero, size: mapSize), transform: nil)
