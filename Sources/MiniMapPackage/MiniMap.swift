@@ -138,24 +138,18 @@ public struct BaseEntity: MiniMapEntity {
 // MARK: - Type-Erased Entity Wrapper
 
 public struct AnyMiniMapEntity: MiniMapEntity {
-  private let _position: () -> CGPoint
-  private let _markerColor: () -> PlatformColor
-  private let _markerRadius: () -> CGFloat
-  private let _markerStrokeColor: () -> PlatformColor
-  private let _markerLineWidth: () -> CGFloat
-
-  public var position: CGPoint { _position() }
-  public var markerColor: PlatformColor { _markerColor() }
-  public var markerRadius: CGFloat { _markerRadius() }
-  public var markerStrokeColor: PlatformColor { _markerStrokeColor() }
-  public var markerLineWidth: CGFloat { _markerLineWidth() }
+  public let position: CGPoint
+  public let markerColor: PlatformColor
+  public let markerRadius: CGFloat
+  public let markerStrokeColor: PlatformColor
+  public let markerLineWidth: CGFloat
 
   public init<E: MiniMapEntity>(_ entity: E) {
-    _position = { entity.position }
-    _markerColor = { entity.markerColor }
-    _markerRadius = { entity.markerRadius }
-    _markerStrokeColor = { entity.markerStrokeColor }
-    _markerLineWidth = { entity.markerLineWidth }
+    position = entity.position
+    markerColor = entity.markerColor
+    markerRadius = entity.markerRadius
+    markerStrokeColor = entity.markerStrokeColor
+    markerLineWidth = entity.markerLineWidth
   }
 }
 
@@ -173,6 +167,7 @@ public class MiniMap: SKNode {
   internal let background: SKShapeNode
   private var baseMarker: SKShapeNode?
   private var entityMarkers: [SKShapeNode] = []
+  private var entityMarkerRadii: [CGFloat] = []
   private var cameraViewFrame: SKShapeNode?
   public weak var delegate: MiniMapDelegate?
 
@@ -484,24 +479,56 @@ public class MiniMap: SKNode {
     // Store current entities and scene size for resize updates
     currentEntities = entities
     currentSceneSize = sceneSize
-    
-    // Remove old markers
-    for marker in entityMarkers {
-      marker.removeFromParent()
+
+    guard sceneSize.width != 0, sceneSize.height != 0 else { return }
+    let scaleX = mapSize.width / sceneSize.width
+    let scaleY = mapSize.height / sceneSize.height
+
+    let needed = entities.count
+    let existing = entityMarkers.count
+
+    // Remove excess markers
+    if existing > needed {
+      for marker in entityMarkers[needed...] {
+        marker.removeFromParent()
+      }
+      entityMarkers.removeLast(existing - needed)
+      entityMarkerRadii.removeLast(existing - needed)
     }
-    entityMarkers.removeAll()
 
-    // Add new markers
-    for entity in entities {
-      let marker = SKShapeNode(circleOfRadius: entity.markerRadius)
-      marker.fillColor = entity.markerColor
-      marker.strokeColor = entity.markerStrokeColor
-      marker.lineWidth = entity.markerLineWidth
+    // Update existing markers and add new ones, avoiding unnecessary node recreation
+    for (i, entity) in entities.enumerated() {
+      let mapPosition = CGPoint(x: entity.position.x * scaleX, y: entity.position.y * scaleY)
 
-      let mapPosition = convertToMapPosition(entity.position, sceneSize: sceneSize)
-      marker.position = mapPosition
-      entityMarkers.append(marker)
-      addChild(marker)
+      if i < existing {
+        let marker = entityMarkers[i]
+        if entityMarkerRadii[i] != entity.markerRadius {
+          // Radius is baked into the path; recreate only when it changes
+          marker.removeFromParent()
+          let newMarker = SKShapeNode(circleOfRadius: entity.markerRadius)
+          newMarker.fillColor = entity.markerColor
+          newMarker.strokeColor = entity.markerStrokeColor
+          newMarker.lineWidth = entity.markerLineWidth
+          newMarker.position = mapPosition
+          entityMarkers[i] = newMarker
+          entityMarkerRadii[i] = entity.markerRadius
+          addChild(newMarker)
+        } else {
+          marker.fillColor = entity.markerColor
+          marker.strokeColor = entity.markerStrokeColor
+          marker.lineWidth = entity.markerLineWidth
+          marker.position = mapPosition
+        }
+      } else {
+        let newMarker = SKShapeNode(circleOfRadius: entity.markerRadius)
+        newMarker.fillColor = entity.markerColor
+        newMarker.strokeColor = entity.markerStrokeColor
+        newMarker.lineWidth = entity.markerLineWidth
+        newMarker.position = mapPosition
+        entityMarkers.append(newMarker)
+        entityMarkerRadii.append(entity.markerRadius)
+        addChild(newMarker)
+      }
     }
   }
 
@@ -517,51 +544,26 @@ public class MiniMap: SKNode {
     currentCameraZoom = cameraZoom
     currentSceneSize = sceneSize
 
-    // Calculate the visible area of the camera
-    // When zoomed in (cameraZoom is small), viewport gets smaller
-    // When zoomed out (cameraZoom is large), viewport gets larger
+    guard sceneSize.width != 0, sceneSize.height != 0 else { return }
+
+    // Pre-compute scale factors once for both axes
+    let scaleX = mapSize.width / sceneSize.width
+    let scaleY = mapSize.height / sceneSize.height
+
+    // When zoomed in (cameraZoom is small), viewport gets smaller;
+    // when zoomed out (cameraZoom is large), viewport gets larger.
     let safeZoom = max(cameraZoom, 0.0001)
-    let viewportWidth = sceneSize.width * safeZoom
-    let viewportHeight = sceneSize.height * safeZoom
+    let halfW = sceneSize.width * safeZoom / 2
+    let halfH = sceneSize.height * safeZoom / 2
 
-    // Calculate the corners of the camera view
-    let topLeft = CGPoint(
-      x: cameraPosition.x - viewportWidth / 2, y: cameraPosition.y + viewportHeight / 2)
-    let topRight = CGPoint(
-      x: cameraPosition.x + viewportWidth / 2, y: cameraPosition.y + viewportHeight / 2)
-    let bottomLeft = CGPoint(
-      x: cameraPosition.x - viewportWidth / 2, y: cameraPosition.y - viewportHeight / 2)
-    let bottomRight = CGPoint(
-      x: cameraPosition.x + viewportWidth / 2, y: cameraPosition.y - viewportHeight / 2)
+    // Map the viewport rectangle directly and clamp to mini-map bounds
+    let minX = max(0, min(mapSize.width,  (cameraPosition.x - halfW) * scaleX))
+    let maxX = max(0, min(mapSize.width,  (cameraPosition.x + halfW) * scaleX))
+    let minY = max(0, min(mapSize.height, (cameraPosition.y - halfH) * scaleY))
+    let maxY = max(0, min(mapSize.height, (cameraPosition.y + halfH) * scaleY))
 
-    // Convert to map coordinates
-    let mapTopLeft = convertToMapPosition(topLeft, sceneSize: sceneSize)
-    let mapTopRight = convertToMapPosition(topRight, sceneSize: sceneSize)
-    let mapBottomLeft = convertToMapPosition(bottomLeft, sceneSize: sceneSize)
-    let mapBottomRight = convertToMapPosition(bottomRight, sceneSize: sceneSize)
-
-    // Clamp coordinates to stay within mini-map bounds
-    let clampedTopLeft = CGPoint(
-      x: max(0, min(mapSize.width, mapTopLeft.x)),
-      y: max(0, min(mapSize.height, mapTopLeft.y)))
-    let clampedTopRight = CGPoint(
-      x: max(0, min(mapSize.width, mapTopRight.x)),
-      y: max(0, min(mapSize.height, mapTopRight.y)))
-    let clampedBottomLeft = CGPoint(
-      x: max(0, min(mapSize.width, mapBottomLeft.x)),
-      y: max(0, min(mapSize.height, mapBottomLeft.y)))
-    let clampedBottomRight = CGPoint(
-      x: max(0, min(mapSize.width, mapBottomRight.x)),
-      y: max(0, min(mapSize.height, mapBottomRight.y)))
-
-    // Create the camera view frame path
     let path = CGMutablePath()
-    path.move(to: clampedTopLeft)
-    path.addLine(to: clampedTopRight)
-    path.addLine(to: clampedBottomRight)
-    path.addLine(to: clampedBottomLeft)
-    path.closeSubpath()
-
+    path.addRect(CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY))
     cameraFrame.path = path
   }
 
