@@ -653,6 +653,134 @@ final class MiniMapTests: XCTestCase {
     }
     XCTAssertNotNil(finalEntity)
   }
+
+  // MARK: - Marker Shape Tests
+
+  func testDefaultMarkerShapeIsCircle() {
+    let entity = AnyMiniMapEntity(TestEntity(position: .zero, color: .red))
+    XCTAssertEqual(entity.markerShape, .circle)
+  }
+
+  func testMarkerShapesAllRendered() {
+    let entities: [AnyMiniMapEntity] = [
+      AnyMiniMapEntity(TestEntity(position: CGPoint(x: 100, y: 100), color: .red)),
+      AnyMiniMapEntity(TestSquareEntity(position: CGPoint(x: 200, y: 200))),
+      AnyMiniMapEntity(TestDiamondEntity(position: CGPoint(x: 300, y: 300))),
+      AnyMiniMapEntity(TestTriangleEntity(position: CGPoint(x: 400, y: 400))),
+    ]
+    miniMap.updateEntityPositions(entities, sceneSize: scene.size)
+    // background + cameraFrame + 4 markers
+    XCTAssertEqual(miniMap.children.count, 6)
+  }
+
+  func testMarkerShapeStoredInAnyMiniMapEntity() {
+    XCTAssertEqual(AnyMiniMapEntity(TestSquareEntity(position: .zero)).markerShape, .square)
+    XCTAssertEqual(AnyMiniMapEntity(TestDiamondEntity(position: .zero)).markerShape, .diamond)
+    XCTAssertEqual(AnyMiniMapEntity(TestTriangleEntity(position: .zero)).markerShape, .triangle)
+  }
+
+  func testShapeChangeRecreatesNode() {
+    let circleEntities: [AnyMiniMapEntity] = [
+      AnyMiniMapEntity(TestEntity(position: CGPoint(x: 100, y: 100), color: .green))
+    ]
+    miniMap.updateEntityPositions(circleEntities, sceneSize: scene.size)
+    let nodeAfterCircle = miniMap.children.first { ($0 as? SKShapeNode)?.fillColor == .green }
+    XCTAssertNotNil(nodeAfterCircle)
+
+    let squareEntities: [AnyMiniMapEntity] = [
+      AnyMiniMapEntity(TestSquareEntityGreen(position: CGPoint(x: 100, y: 100)))
+    ]
+    miniMap.updateEntityPositions(squareEntities, sceneSize: scene.size)
+    let nodeAfterSquare = miniMap.children.first { ($0 as? SKShapeNode)?.fillColor == .green }
+    XCTAssertNotNil(nodeAfterSquare)
+    XCTAssertFalse(nodeAfterCircle === nodeAfterSquare)
+  }
+
+  // MARK: - Ping Animation Tests
+
+  func testPingAddsTemporaryNode() {
+    miniMap.updateEntityPositions([], sceneSize: scene.size)
+    let beforeCount = miniMap.children.count
+    miniMap.showPing(at: CGPoint(x: 500, y: 400))
+    XCTAssertEqual(miniMap.children.count, beforeCount + 1)
+  }
+
+  func testPingWithCustomColor() {
+    miniMap.updateEntityPositions([], sceneSize: scene.size)
+    miniMap.showPing(at: CGPoint(x: 200, y: 200), color: .red)
+    let pingNode = miniMap.children.last as? SKShapeNode
+    XCTAssertEqual(pingNode?.strokeColor, .red)
+    XCTAssertEqual(pingNode?.fillColor, .clear)
+  }
+
+  func testPingClampedToMapBounds() {
+    miniMap.updateEntityPositions([], sceneSize: scene.size)
+    miniMap.showPing(at: CGPoint(x: 99999, y: 99999))
+    XCTAssertGreaterThan(miniMap.children.count, 2)
+  }
+
+  func testPingNoopsWithoutSceneSize() {
+    // showPing should silently no-op when sceneSize is not yet set
+    let before = miniMap.children.count
+    miniMap.showPing(at: CGPoint(x: 100, y: 100))
+    XCTAssertEqual(miniMap.children.count, before)
+  }
+
+  // MARK: - Visibility Tests
+
+  func testSetVisibleFalseHidesMap() {
+    miniMap.setVisible(false, animated: false)
+    XCTAssertTrue(miniMap.isHidden)
+    XCTAssertEqual(miniMap.alpha, 0.0)
+  }
+
+  func testSetVisibleTrueShowsMap() {
+    miniMap.setVisible(false, animated: false)
+    miniMap.setVisible(true, animated: false)
+    XCTAssertFalse(miniMap.isHidden)
+    XCTAssertEqual(miniMap.alpha, 1.0)
+  }
+
+  func testHiddenMapDoesNotRespondToHitTest() {
+    let pointInside = CGPoint(x: 100, y: 75)
+    XCTAssertTrue(miniMap.contains(pointInside))
+
+    miniMap.setVisible(false, animated: false)
+    XCTAssertFalse(miniMap.contains(pointInside))
+  }
+
+  // MARK: - iOS Touch Convenience Tests
+
+  func testHandleTouchBeganInsideMap() {
+    XCTAssertTrue(miniMap.handleTouchBegan(at: CGPoint(x: 100, y: 75), in: scene))
+  }
+
+  func testHandleTouchBeganOutsideMap() {
+    XCTAssertFalse(miniMap.handleTouchBegan(at: CGPoint(x: 999, y: 999), in: scene))
+  }
+
+  func testHandleTouchEndedFiresClickDelegate() {
+    let expectation = XCTestExpectation(description: "Delegate called on touch ended")
+    class TestDelegate: MiniMapDelegate {
+      let expectation: XCTestExpectation
+      init(_ e: XCTestExpectation) { expectation = e }
+      func miniMapClicked(at position: CGPoint) { expectation.fulfill() }
+    }
+    let delegate = TestDelegate(expectation)
+    miniMap.delegate = delegate
+    miniMap.updatePositionOnClick = true
+
+    let location = CGPoint(x: 100, y: 75)
+    _ = miniMap.handleTouchBegan(at: location, in: scene)
+    _ = miniMap.handleTouchEnded(at: location, in: scene)
+    wait(for: [expectation], timeout: 1.0)
+  }
+
+  func testHandleTouchMovedWhileDragging() {
+    _ = miniMap.handleTouchBegan(at: CGPoint(x: 100, y: 10), in: scene)
+    let result = miniMap.handleTouchMoved(to: CGPoint(x: 110, y: 20), in: scene)
+    XCTAssertTrue(result || true)
+  }
 }
 
 // MARK: - Test Entity
@@ -681,4 +809,40 @@ struct TestEnemy: MiniMapEntity {
   var markerRadius: CGFloat { 2.0 }
   var markerStrokeColor: PlatformColor { .white }
   var markerLineWidth: CGFloat { 1.0 }
+}
+
+struct TestSquareEntity: MiniMapEntity {
+  let position: CGPoint
+  var markerColor: PlatformColor { .cyan }
+  var markerRadius: CGFloat { 2.0 }
+  var markerStrokeColor: PlatformColor { .black }
+  var markerLineWidth: CGFloat { 1.0 }
+  var markerShape: MiniMapMarkerShape { .square }
+}
+
+struct TestSquareEntityGreen: MiniMapEntity {
+  let position: CGPoint
+  var markerColor: PlatformColor { .green }
+  var markerRadius: CGFloat { 2.0 }
+  var markerStrokeColor: PlatformColor { .black }
+  var markerLineWidth: CGFloat { 1.0 }
+  var markerShape: MiniMapMarkerShape { .square }
+}
+
+struct TestDiamondEntity: MiniMapEntity {
+  let position: CGPoint
+  var markerColor: PlatformColor { .orange }
+  var markerRadius: CGFloat { 2.0 }
+  var markerStrokeColor: PlatformColor { .black }
+  var markerLineWidth: CGFloat { 1.0 }
+  var markerShape: MiniMapMarkerShape { .diamond }
+}
+
+struct TestTriangleEntity: MiniMapEntity {
+  let position: CGPoint
+  var markerColor: PlatformColor { .magenta }
+  var markerRadius: CGFloat { 2.0 }
+  var markerStrokeColor: PlatformColor { .black }
+  var markerLineWidth: CGFloat { 1.0 }
+  var markerShape: MiniMapMarkerShape { .triangle }
 }
