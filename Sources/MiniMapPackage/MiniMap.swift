@@ -95,6 +95,20 @@ public enum MiniMapSize {
   }
 }
 
+// MARK: - Marker Shape
+
+/// Shape used to render an entity marker on the mini-map
+public enum MiniMapMarkerShape: Equatable {
+  /// Circular marker (default)
+  case circle
+  /// Square marker
+  case square
+  /// Diamond (rotated square) marker
+  case diamond
+  /// Upward-pointing equilateral triangle marker
+  case triangle
+}
+
 // MARK: - Entity Protocol
 
 /// Protocol for entities that can be displayed on the mini-map
@@ -109,6 +123,8 @@ public protocol MiniMapEntity {
   var markerStrokeColor: PlatformColor { get }
   /// The line width of the entity's marker stroke
   var markerLineWidth: CGFloat { get }
+  /// The shape of the entity's marker
+  var markerShape: MiniMapMarkerShape { get }
 }
 
 // MARK: - Default Entity Implementation
@@ -118,6 +134,7 @@ extension MiniMapEntity {
   public var markerRadius: CGFloat { 1.0 }
   public var markerStrokeColor: PlatformColor { .white }
   public var markerLineWidth: CGFloat { 0.5 }
+  public var markerShape: MiniMapMarkerShape { .circle }
 }
 
 // MARK: - Base Entity
@@ -143,6 +160,7 @@ public struct AnyMiniMapEntity: MiniMapEntity {
   public let markerRadius: CGFloat
   public let markerStrokeColor: PlatformColor
   public let markerLineWidth: CGFloat
+  public let markerShape: MiniMapMarkerShape
 
   public init<E: MiniMapEntity>(_ entity: E) {
     position = entity.position
@@ -150,6 +168,7 @@ public struct AnyMiniMapEntity: MiniMapEntity {
     markerRadius = entity.markerRadius
     markerStrokeColor = entity.markerStrokeColor
     markerLineWidth = entity.markerLineWidth
+    markerShape = entity.markerShape
   }
 }
 
@@ -168,6 +187,7 @@ public class MiniMap: SKNode {
   private var baseMarker: SKShapeNode?
   private var entityMarkers: [SKShapeNode] = []
   private var entityMarkerRadii: [CGFloat] = []
+  private var entityMarkerShapes: [MiniMapMarkerShape] = []
   private var cameraViewFrame: SKShapeNode?
   public weak var delegate: MiniMapDelegate?
 
@@ -448,13 +468,142 @@ public class MiniMap: SKNode {
     return false
   }
 
+  // MARK: - iOS / tvOS Touch Convenience Methods
+
+  /// Handle `touchesBegan` from the scene (iOS / tvOS convenience method).
+  /// - Parameters:
+  ///   - location: Touch location in scene coordinates
+  ///   - scene: The parent scene
+  /// - Returns: `true` if the mini-map consumed the event
+  public func handleTouchBegan(at location: CGPoint, in scene: SKScene) -> Bool {
+    let locationInMiniMap = convert(location, from: scene)
+    if contains(locationInMiniMap) {
+      if isOverResizeArea(locationInMiniMap) {
+        startResizing(at: locationInMiniMap)
+        return true
+      }
+      if isOverDragArea(locationInMiniMap) {
+        startDragging(at: locationInMiniMap)
+        return true
+      }
+      return true
+    }
+    return false
+  }
+
+  /// Handle `touchesMoved` from the scene (iOS / tvOS convenience method).
+  /// - Parameters:
+  ///   - location: Touch location in scene coordinates
+  ///   - scene: The parent scene
+  /// - Returns: `true` if the mini-map consumed the event
+  public func handleTouchMoved(to location: CGPoint, in scene: SKScene) -> Bool {
+    if isDragging || isResizing {
+      let locationInMiniMap = convert(location, from: scene)
+      handleTouchMoved(to: locationInMiniMap)
+      return true
+    }
+    let locationInMiniMap = convert(location, from: scene)
+    if contains(locationInMiniMap) {
+      handleTouchMoved(to: locationInMiniMap)
+      return true
+    }
+    return false
+  }
+
+  /// Handle `touchesEnded` from the scene (iOS / tvOS convenience method).
+  /// - Parameters:
+  ///   - location: Touch location in scene coordinates
+  ///   - scene: The parent scene
+  /// - Returns: `true` if the mini-map consumed the event
+  public func handleTouchEnded(at location: CGPoint, in scene: SKScene) -> Bool {
+    if isDragging || isResizing {
+      handleTouchEnded()
+      return true
+    }
+    let locationInMiniMap = convert(location, from: scene)
+    if contains(locationInMiniMap) {
+      if !isDragging && !isResizing {
+        handleClick(at: locationInMiniMap)
+      }
+      handleTouchEnded()
+      return true
+    }
+    return false
+  }
+
   // MARK: - Bounds Checking
 
   /// Check if a point is within the mini-map bounds
   /// - Parameter point: The point to check
   /// - Returns: True if the point is within the mini-map bounds
   public override func contains(_ point: CGPoint) -> Bool {
+    guard !isHidden else { return false }
     return background.contains(point)
+  }
+
+  // MARK: - Visibility
+
+  /// Show or hide the mini-map, optionally with a fade animation.
+  /// When hidden, `contains(_:)` returns `false` so no interactions are captured.
+  /// - Parameters:
+  ///   - visible: `true` to show, `false` to hide
+  ///   - animated: Whether to cross-fade over 0.3 s (default `true`)
+  public func setVisible(_ visible: Bool, animated: Bool = true) {
+    if animated {
+      if visible {
+        isHidden = false
+        run(SKAction.fadeIn(withDuration: 0.3))
+      } else {
+        run(SKAction.sequence([
+          SKAction.fadeOut(withDuration: 0.3),
+          SKAction.run { [weak self] in self?.isHidden = true },
+        ]))
+      }
+    } else {
+      removeAllActions()
+      isHidden = !visible
+      alpha = visible ? 1.0 : 0.0
+    }
+  }
+
+  // MARK: - Ping Animation
+
+  /// Display a brief pulsing ring at a scene position on the mini-map — useful
+  /// for drawing attention to events such as alerts, waypoints, or attack markers.
+  /// - Parameters:
+  ///   - scenePosition: The world/scene coordinate to highlight
+  ///   - color: Ring stroke color (default `.yellow`)
+  ///   - duration: Total animation duration in seconds (default `1.0`)
+  public func showPing(
+    at scenePosition: CGPoint,
+    color: PlatformColor = .yellow,
+    duration: TimeInterval = 1.0
+  ) {
+    let sceneSize = currentSceneSize
+    guard sceneSize.width != 0, sceneSize.height != 0 else { return }
+
+    var mapPosition = convertToMapPosition(scenePosition, sceneSize: sceneSize)
+    mapPosition = CGPoint(
+      x: max(0, min(mapSize.width, mapPosition.x)),
+      y: max(0, min(mapSize.height, mapPosition.y))
+    )
+
+    let ping = SKShapeNode(circleOfRadius: 4)
+    ping.fillColor = .clear
+    ping.strokeColor = color
+    ping.lineWidth = 2
+    ping.position = mapPosition
+    addChild(ping)
+
+    let expand = SKAction.scale(to: 3.0, duration: duration * 0.7)
+    let fade = SKAction.sequence([
+      SKAction.wait(forDuration: duration * 0.5),
+      SKAction.fadeOut(withDuration: duration * 0.5),
+    ])
+    ping.run(SKAction.sequence([
+      SKAction.group([expand, fade]),
+      SKAction.removeFromParent(),
+    ]))
   }
 
   // MARK: - Position Updates
@@ -494,6 +643,7 @@ public class MiniMap: SKNode {
       }
       entityMarkers.removeLast(existing - needed)
       entityMarkerRadii.removeLast(existing - needed)
+      entityMarkerShapes.removeLast(existing - needed)
     }
 
     // Update existing markers and add new ones, avoiding unnecessary node recreation
@@ -502,16 +652,14 @@ public class MiniMap: SKNode {
 
       if i < existing {
         let marker = entityMarkers[i]
-        if entityMarkerRadii[i] != entity.markerRadius {
-          // Radius is baked into the path; recreate only when it changes
+        if entityMarkerRadii[i] != entity.markerRadius || entityMarkerShapes[i] != entity.markerShape {
+          // Shape/radius is baked into the path; recreate only when either changes
           marker.removeFromParent()
-          let newMarker = SKShapeNode(circleOfRadius: entity.markerRadius)
-          newMarker.fillColor = entity.markerColor
-          newMarker.strokeColor = entity.markerStrokeColor
-          newMarker.lineWidth = entity.markerLineWidth
+          let newMarker = makeMarkerNode(for: entity)
           newMarker.position = mapPosition
           entityMarkers[i] = newMarker
           entityMarkerRadii[i] = entity.markerRadius
+          entityMarkerShapes[i] = entity.markerShape
           addChild(newMarker)
         } else {
           marker.fillColor = entity.markerColor
@@ -520,16 +668,44 @@ public class MiniMap: SKNode {
           marker.position = mapPosition
         }
       } else {
-        let newMarker = SKShapeNode(circleOfRadius: entity.markerRadius)
-        newMarker.fillColor = entity.markerColor
-        newMarker.strokeColor = entity.markerStrokeColor
-        newMarker.lineWidth = entity.markerLineWidth
+        let newMarker = makeMarkerNode(for: entity)
         newMarker.position = mapPosition
         entityMarkers.append(newMarker)
         entityMarkerRadii.append(entity.markerRadius)
+        entityMarkerShapes.append(entity.markerShape)
         addChild(newMarker)
       }
     }
+  }
+
+  private func makeMarkerNode(for entity: AnyMiniMapEntity) -> SKShapeNode {
+    let r = entity.markerRadius
+    let node: SKShapeNode
+    switch entity.markerShape {
+    case .circle:
+      node = SKShapeNode(circleOfRadius: r)
+    case .square:
+      node = SKShapeNode(rectOf: CGSize(width: r * 2, height: r * 2))
+    case .diamond:
+      let path = CGMutablePath()
+      path.move(to: CGPoint(x: 0, y: r))
+      path.addLine(to: CGPoint(x: r, y: 0))
+      path.addLine(to: CGPoint(x: 0, y: -r))
+      path.addLine(to: CGPoint(x: -r, y: 0))
+      path.closeSubpath()
+      node = SKShapeNode(path: path)
+    case .triangle:
+      let path = CGMutablePath()
+      path.move(to: CGPoint(x: 0, y: r))
+      path.addLine(to: CGPoint(x: r * 0.866, y: -r * 0.5))
+      path.addLine(to: CGPoint(x: -r * 0.866, y: -r * 0.5))
+      path.closeSubpath()
+      node = SKShapeNode(path: path)
+    }
+    node.fillColor = entity.markerColor
+    node.strokeColor = entity.markerStrokeColor
+    node.lineWidth = entity.markerLineWidth
+    return node
   }
 
   /// Update the camera view frame on the mini-map
